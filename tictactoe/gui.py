@@ -1,12 +1,4 @@
-"""
-gui.py - Tkinter interface for Human-vs-AI and AI-vs-AI.
-
-    python -m tictactoe.gui
-
-Board size, win length, depth, algorithm and your side can be changed in
-the panel; "New game" applies them. Defaults come from config.py.
-The AI's search statistics are shown after each of its moves.
-"""
+"""Tkinter window for Human vs AI and AI vs AI games (python -m tictactoe.gui)."""
 import tkinter as tk
 from tkinter import ttk
 
@@ -57,13 +49,11 @@ class TicTacToeGUI:
         self.status.grid(row=2, column=0, sticky="w")
         self.new_game()
 
-    # ------------------------------------------------------------ game flow
     def new_game(self):
-        # keep typed-in values inside the spinbox limits: N 3-4, K 3-N, depth 0-5
         n = min(max(3, self.size_var.get()), 4)
         k = min(max(3, self.win_var.get()), n)
         depth = min(max(0, self.depth_var.get()), 5) or None
-        if depth is None and n > 3:   # full search is infeasible beyond 3x3
+        if depth is None and n > 3:   # a full search is too slow beyond 3x3
             depth = config.LARGE_BOARD_DEFAULT_DEPTH
         self.size_var.set(n)
         self.win_var.set(k)
@@ -125,7 +115,6 @@ class TicTacToeGUI:
             self.set_status("You win!" if w == self.human_side else "AI wins!")
         return True
 
-    # -------------------------------------------------------------- drawing
     def draw(self):
         cv, n = self.canvas, self.game.n
         cv.delete("all")

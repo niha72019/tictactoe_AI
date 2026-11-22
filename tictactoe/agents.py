@@ -1,12 +1,4 @@
-"""
-agents.py - players, and a function that plays one complete game.
-
-SearchAgent  - picks every move by calling Minimax or Alpha-Beta search
-               (no opening book, no hard-coded moves), and keeps a log of
-               nodes/time for each move it makes.
-RandomAgent  - the baseline: a uniformly random legal move (seeded RNG).
-HumanAgent   - asks the user in the console.
-"""
+"""Players (search AI, random, human) and a function that plays one full game."""
 import random
 
 from .game import X, O
@@ -28,7 +20,7 @@ class SearchAgent(Agent):
         self.search = ALGORITHMS[algorithm]
         self.max_depth = max_depth
         self.name = algorithm
-        self.history = []             # one SearchResult per move made
+        self.history = []
 
     def choose_move(self, game, state):
         result = self.search(game, state, self.max_depth)
@@ -62,10 +54,8 @@ class HumanAgent(Agent):
 
 
 class GameRecord:
-    """The result of one finished game."""
-
     def __init__(self, winner, moves=None, final_state=None):
-        self.winner = winner                              # 'X', 'O' or None for a draw
+        self.winner = winner                              # None means a draw
         self.moves = moves if moves is not None else []
         self.final_state = final_state
 
@@ -86,7 +76,6 @@ def play_game(game, agent_x, agent_o, on_move=None, start_state=None):
 
 
 def outcome_for(record, side):
-    """'win' / 'draw' / 'loss' from the point of view of `side`."""
     if record.winner is None:
         return "draw"
     return "win" if record.winner == side else "loss"

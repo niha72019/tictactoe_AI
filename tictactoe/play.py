@@ -1,14 +1,5 @@
-"""
-play.py - console interface: you vs the AI.
-(AI vs AI is a mode in the GUI: python -m tictactoe.gui)
-
-    python -m tictactoe.play
-
-All settings come from tictactoe/config.py:
-  BOARD_SIZE, WIN_LENGTH, SEARCH_DEPTH   the board and how deep the AI searches
-  PLAY_HUMAN_SIDE                        "X" (you move first) or "O"
-  PLAY_ALGORITHM                         "alphabeta" or "minimax"
-"""
+"""Console game: you vs the AI (python -m tictactoe.play).
+Board, depth, your side and the algorithm are set in config.py."""
 from . import config
 from .agents import HumanAgent, SearchAgent, play_game
 from .config import GameSettings
@@ -19,7 +10,7 @@ def build_settings():
     size = config.BOARD_SIZE
     win = min(config.WIN_LENGTH, size)
     depth = config.SEARCH_DEPTH
-    if depth is None and size > 3:   # full search is infeasible beyond 3x3
+    if depth is None and size > 3:   # a full search is too slow beyond 3x3
         depth = config.LARGE_BOARD_DEFAULT_DEPTH
     return GameSettings(size, win, depth)
 

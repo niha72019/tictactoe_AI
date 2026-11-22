@@ -1,9 +1,4 @@
-"""
-report.py - the short console output for the menu.
-
-  print_experiment_summary()  one combined table built from results/summary.csv
-  run_tests()                 runs the tests with pytest's verbose output
-"""
+"""Console output for the menu: the experiment summary table and the test run."""
 import os
 
 import pandas as pd
@@ -12,15 +7,11 @@ import pytest
 from . import config
 from .plots import node_saving_pct
 
-# column widths of the experiment table
-LABEL_W = 30      # row labels
-COL_W = 12        # one algorithm column
+LABEL_W = 30
+COL_W = 12
 GROUP_W = 2 * COL_W + 2   # one setting = Minimax column + Alpha-Beta column
 
 
-# --------------------------------------------------------------------------
-# Menu option 2: experiments
-# --------------------------------------------------------------------------
 def setting_name(cfg):
     """'3x3 k3 full' -> '3x3, full search';  '4x4 k4 d3' -> '4x4, 4 in a row, depth 3'."""
     board, k, depth = cfg.split()
@@ -83,9 +74,6 @@ def print_experiment_summary():
     print(f"Charts saved to: {config.PLOTS_DIR}")
 
 
-# --------------------------------------------------------------------------
-# Menu option 3: tests
-# --------------------------------------------------------------------------
 def run_tests():
-    """Run every test in tests/ and show pytest's verbose output. True if all passed."""
+    """Run every test in tests/; True if all passed."""
     return pytest.main(["-v", os.path.join(config.PROJECT_DIR, "tests")]) == 0

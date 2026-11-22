@@ -1,13 +1,5 @@
-"""
-Search tests.
-
-1. Minimax never loses on 3x3 - proved by exhaustion: the Minimax agent plays
-   as X and as O against EVERY possible sequence of opponent moves.
-2. Minimax vs Minimax is a draw, and the AI takes wins / blocks threats.
-3. Alpha-Beta picks the same move (and value) as Minimax on every reachable
-   non-terminal 3x3 state, and on sampled 4x4 depth-3 states, while never
-   visiting more nodes.
-"""
+"""Search tests: Minimax never loses on 3x3, and Alpha-Beta always picks the same
+move as Minimax while visiting no more positions."""
 import random
 
 import pytest
@@ -41,12 +33,10 @@ def reachable3(game3):
     return all_reachable_states(game3)
 
 
-# ----------------------------------------------------------- never loses
 @pytest.mark.parametrize("ai_side", [X, O])
 def test_minimax_never_loses_against_any_opponent(game3, ai_side):
-    """Walk the whole game tree: the opponent tries every legal move at every
-    turn, Minimax answers each position. No branch may end in an AI loss."""
-    ai_move_cache = {}       # the AI is deterministic; cache only to save time
+    """The opponent tries every legal move at every turn; no game may end in an AI loss."""
+    ai_move_cache = {}       # the AI is deterministic; caching only saves time
     outcomes = {"win": 0, "draw": 0, "loss": 0}
 
     def explore(state):
@@ -81,7 +71,6 @@ def test_takes_immediate_win_and_blocks(game3):
     assert minimax_search(game3, s).move == 2       # block
 
 
-# ------------------------------------------- Alpha-Beta == Minimax (3x3)
 def test_alphabeta_same_move_on_every_3x3_state(game3, reachable3):
     checked = 0
     for s in reachable3:
@@ -93,7 +82,7 @@ def test_alphabeta_same_move_on_every_3x3_state(game3, reachable3):
         assert ab.value == pytest.approx(mm.value)
         assert ab.nodes <= mm.nodes
         checked += 1
-    assert checked == 4520                          # non-terminal reachable states
+    assert checked == 4520                          # reachable unfinished states
 
 
 def test_alphabeta_prunes_from_empty_board(game3):
@@ -103,7 +92,6 @@ def test_alphabeta_prunes_from_empty_board(game3):
     assert ab.nodes < mm.nodes and ab.cutoffs > 0
 
 
-# ------------------------------- Alpha-Beta == Minimax (4x4, depth-limited)
 def test_alphabeta_same_move_depth_limited():
     n, k, depth = 4, 4, 3
     game = TicTacToe(GameSettings(n, k, depth))

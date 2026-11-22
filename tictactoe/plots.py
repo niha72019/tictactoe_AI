@@ -1,11 +1,4 @@
-"""
-plots.py - draws the comparison charts from the CSV files in results/.
-
-    python -m tictactoe.plots
-
-It reads only the measured CSVs written by experiments.py; no numbers are
-typed in here. PNGs go to results/plots/.
-"""
+"""Draws the comparison charts into results/plots/ from the CSVs in results/."""
 import os
 
 import matplotlib
@@ -16,7 +9,6 @@ import pandas as pd
 
 from . import config
 
-# Validated categorical slots 1-2 (blue, orange) + status colours + chrome.
 SERIES = {"minimax": "#2a78d6", "alphabeta": "#eb6834"}
 NAMES = {"minimax": "Minimax", "alphabeta": "Alpha-Beta"}
 OUTCOME = {"win": "#0ca30c", "draw": "#898781", "loss": "#d03b3b"}
@@ -38,7 +30,7 @@ def save(fig, name):
 
 
 def plot_depth_scaling(df):
-    """Positions searched vs search depth, from the empty board (one chart per board size)."""
+    """Positions searched vs search depth from the empty board, one chart per board size."""
     sizes = sorted(df.board_size.unique())
     fig, axes = plt.subplots(1, len(sizes), figsize=(6.5 * len(sizes), 4.2), squeeze=False)
     for ax, n in zip(axes[0], sizes):
@@ -88,8 +80,7 @@ def grouped_bars(summary, metric, xlabel, title, fname, log=True):
 
 
 def node_saving_pct(summary):
-    """% fewer positions Alpha-Beta searched than Minimax, per configuration:
-    summary.csv's node_reduction_pct (1 - Alpha-Beta average / Minimax average)."""
+    """% fewer positions Alpha-Beta searched than Minimax, per configuration."""
     return summary.drop_duplicates("config").set_index("config")["node_reduction_pct"]
 
 

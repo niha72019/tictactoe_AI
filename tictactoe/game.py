@@ -1,20 +1,5 @@
-"""
-game.py - the Tic-Tac-Toe game engine for any N x N board and win length K.
-
-State representation
---------------------
-A state is a tuple of N*N cells, each 'X', 'O' or EMPTY ('.'), stored
-row by row, so cell (r, c) is index r*N + c.  Tuples are immutable and
-hashable, which makes states safe to share and usable as dict keys.
-X always moves first, so whose turn it is follows from the counts.
-
-Winning lines
--------------
-Instead of hard-coding the 8 lines of 3x3, all lines are generated:
-every horizontal, vertical, diagonal and anti-diagonal run of K cells.
-For each cell we also keep the list of lines through it, so after a move
-only those lines need to be checked.
-"""
+"""Tic-Tac-Toe rules for an N x N board where K in a row wins.
+A state is a tuple of N*N cells ('X', 'O' or '.') stored row by row, so cell (r, c) is r*N + c."""
 from .config import DEFAULT_SETTINGS
 
 X, O, EMPTY = "X", "O", "."
@@ -31,16 +16,18 @@ class TicTacToe:
         self.settings = settings
         self.n = settings.board_size
         self.k = settings.win_length
-        self.lines = self._generate_lines()           # every winning line (tuple of cells)
-        self.lines_through = [                        # lines passing through each cell
+        self.lines = self._generate_lines()
+        # Lines through each cell, so after a move only those need checking.
+        self.lines_through = [
             [line for line in self.lines if cell in line]
             for cell in range(self.n * self.n)
         ]
 
-    # ---------------------------------------------------------------- lines
     def _generate_lines(self):
+        # From every cell, step K-1 times in each direction; if the last cell is
+        # still on the board, those K cells form a winning line.
         n, k = self.n, self.k
-        directions = [(0, 1), (1, 0), (1, 1), (1, -1)]  # → ↓ ↘ ↙
+        directions = [(0, 1), (1, 0), (1, 1), (1, -1)]  # right, down, down-right, down-left
         lines = []
         for r in range(n):
             for c in range(n):
@@ -51,29 +38,24 @@ class TicTacToe:
                                            for i in range(k)))
         return lines
 
-    # ---------------------------------------------------------------- state
     def initial_state(self):
         return (EMPTY,) * (self.n * self.n)
 
     def to_move(self, state):
-        """Whose turn it is (X moves first)."""
         return X if state.count(X) == state.count(O) else O
 
     def actions(self, state):
-        """Legal moves = indices of empty cells, in row-major order."""
         return [i for i, cell in enumerate(state) if cell == EMPTY]
 
     def result(self, state, move):
-        """Successor state after the player to move plays `move`."""
         if state[move] != EMPTY:
             raise ValueError(f"cell {move} is already occupied")
         cells = list(state)
         cells[move] = self.to_move(state)
         return tuple(cells)
 
-    # ------------------------------------------------------------- terminal
     def is_win_at(self, state, cell):
-        """Does the mark on `cell` complete a line? (fast check after a move)"""
+        """Does the mark on `cell` complete a line? Checks only lines through `cell`."""
         mark = state[cell]
         if mark == EMPTY:
             return False
@@ -81,7 +63,6 @@ class TicTacToe:
                    for line in self.lines_through[cell])
 
     def winner(self, state):
-        """'X' or 'O' if that player has K in a line, else None."""
         for line in self.lines:
             first = state[line[0]]
             if first != EMPTY and all(state[i] == first for i in line):
@@ -101,7 +82,6 @@ class TicTacToe:
     def is_terminal(self, state):
         return self.winner(state) is not None or self.is_full(state)
 
-    # -------------------------------------------------------------- display
     def render(self, state):
         n = self.n
         width = len(str(n * n - 1))

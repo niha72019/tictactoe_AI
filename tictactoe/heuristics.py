@@ -1,22 +1,10 @@
-"""
-heuristics.py - evaluation of non-terminal states for depth-limited search.
-
-When the search is cut off before the game ends (needed for N x N boards),
-the position is scored by counting "open lines": lines of length K that
-contain marks of only one player, so that player could still complete them.
-
-A line with m of my marks and no opponent marks is worth 10**(m-1):
-one mark = 1, two marks = 10, a near-win (K-1 marks) much more.
-The score is (mine - theirs) / (mine + theirs + 1), which lies strictly in
-(-1, 1), then multiplied by HEURISTIC_SCALE so a heuristic estimate is
-always smaller than a real win (+1) or loss (-1).
-"""
+"""Scores an unfinished position when a depth-limited search stops before the game ends."""
 from .config import HEURISTIC_SCALE
 from .game import other
 
 
 def open_line_counts(game, state, player):
-    """{m: number of open lines holding exactly m of `player`'s marks}."""
+    """{m: number of lines with exactly m of `player`'s marks and none of the opponent's}."""
     opponent = other(player)
     counts = {}
     for line in game.lines:
@@ -35,12 +23,15 @@ def open_line_counts(game, state, player):
 
 
 def line_score(game, state, player):
+    # A line the opponent hasn't blocked, holding m of my marks, is worth 10^(m-1):
+    # 1 mark = 1, 2 marks = 10, 3 marks = 100, ...
     return sum(n * 10 ** (m - 1)
                for m, n in open_line_counts(game, state, player).items())
 
 
 def evaluate(game, state, player):
-    """Heuristic value of `state` for `player`, in (-HEURISTIC_SCALE, HEURISTIC_SCALE)."""
     mine = line_score(game, state, player)
     theirs = line_score(game, state, other(player))
+    # (mine - theirs) / (mine + theirs + 1) is always between -1 and 1; scaling it by
+    # HEURISTIC_SCALE (0.5) keeps every estimate below a real win (+1) or loss (-1).
     return HEURISTIC_SCALE * (mine - theirs) / (mine + theirs + 1)

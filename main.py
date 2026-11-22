@@ -1,9 +1,4 @@
-"""
-main.py - one entry point for the whole project.
-
-    python main.py            # interactive menu
-    python main.py gui | experiments | tests
-"""
+"""Entry point: `python main.py` for the menu, or `python main.py gui|experiments|tests`."""
 import sys
 
 from tictactoe import experiments, gui, plots, report
@@ -24,8 +19,8 @@ def run_tests():
 
 def run_experiments_and_charts():
     print("\nRunning experiments... (a minute or two)")
-    experiments.main()      # writes the CSVs (all detail is in them)
-    plots.main()            # draws the charts from the CSVs
+    experiments.main()
+    plots.main()
     report.print_experiment_summary()
 
 
@@ -58,7 +53,7 @@ def main():
                 ACTIONS[NUMBERS[choice]]()
             except KeyboardInterrupt:
                 print("\n(stopped)")
-            if choice != "1":   # keep the output on screen until the user is done reading
+            if choice != "1":
                 try:
                     input("\nPress Enter to return to the menu...")
                 except (EOFError, KeyboardInterrupt):

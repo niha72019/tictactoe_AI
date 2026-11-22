@@ -1,19 +1,4 @@
-"""
-experiments.py - runs every experiment and writes the measured results to CSV.
-
-Nothing here is typed in by hand: every number in results/*.csv comes from
-actually running the search code.
-
-    python -m tictactoe.experiments            # settings are in config.py
-
-Outputs (in results/):
-  state_comparison.csv  Minimax vs Alpha-Beta on identical, seeded random states
-                        (one row per state per algorithm: move, value, nodes, time)
-  games_vs_random.csv   one row per game: AI (minimax / alphabeta) vs random baseline
-  ai_vs_ai.csv          Minimax vs Alpha-Beta games, both colour assignments
-  depth_scaling.csv     nodes and time from the empty board vs search depth
-  summary.csv           aggregated table built from the files above
-"""
+"""Runs every experiment and writes the measured results to CSV files in results/."""
 import os
 import random
 
@@ -32,8 +17,7 @@ def label(s):
 
 
 def timed_search(algorithm, game, state, depth, repeats):
-    """Run a search `repeats` times; keep its result and the median time
-    (the middle one of the sorted times)."""
+    """Run a search `repeats` times; keep its result and the median time."""
     fn = ALGORITHMS[algorithm]
     results = [fn(game, state, depth) for _ in range(repeats)]
     r = results[0]
@@ -42,11 +26,8 @@ def timed_search(algorithm, game, state, depth, repeats):
     return r
 
 
-# --------------------------------------------------------------------------
-# 1. Minimax vs Alpha-Beta on identical board states
-# --------------------------------------------------------------------------
 def random_states(game, count, rng):
-    """Distinct non-terminal states reached by random play of random length."""
+    """Distinct unfinished states reached by random play of random length."""
     states, seen, attempts = [], set(), 0
     max_plies = game.n * game.n - 1
     while len(states) < count and attempts < count * 50:
@@ -66,8 +47,7 @@ def run_state_comparison(configs, states_per_config, repeats, seed):
     rows = []
     for s in configs:
         game = TicTacToe(s)
-        # seeded by the setting's name (not its place in the list), so adding or
-        # reordering settings never changes the positions another setting is tested on
+        # Seeded by the setting's name, so adding settings never changes another's positions.
         states = random_states(game, states_per_config, random.Random(f"{seed}:{label(s)}"))
         for si, state in enumerate(states):
             for algo in ("minimax", "alphabeta"):
@@ -82,9 +62,6 @@ def run_state_comparison(configs, states_per_config, repeats, seed):
     return pd.DataFrame(rows)
 
 
-# --------------------------------------------------------------------------
-# 2. Games against the random baseline, and AI vs AI
-# --------------------------------------------------------------------------
 def play_logged(game, agent_x, agent_o, ai_agents):
     for a in ai_agents:
         a.history.clear()
@@ -138,9 +115,6 @@ def run_ai_vs_ai(configs):
     return pd.DataFrame(rows)
 
 
-# --------------------------------------------------------------------------
-# 3. Depth scaling from the empty board
-# --------------------------------------------------------------------------
 def run_depth_scaling(scaling, repeats):
     rows = []
     for n, spec in scaling.items():
@@ -155,13 +129,10 @@ def run_depth_scaling(scaling, repeats):
     return pd.DataFrame(rows)
 
 
-# --------------------------------------------------------------------------
-# Summary
-# --------------------------------------------------------------------------
 def build_summary(states, games):
     """One row per setting and algorithm, built from the two detailed tables."""
     rows = []
-    configs = []                                  # settings, in the order they were run
+    configs = []
     for c in states["config"]:
         if c not in configs:
             configs.append(c)
@@ -171,7 +142,6 @@ def build_summary(states, games):
         mm = st[st["algorithm"] == "minimax"]
         ab = st[st["algorithm"] == "alphabeta"]
 
-        # did both algorithms pick the same move / value on each position?
         same_move = 0
         same_value = 0
         mm_moves, ab_moves = list(mm["move"]), list(ab["move"])
@@ -183,7 +153,6 @@ def build_summary(states, games):
                 same_value += 1
         n = len(mm_moves)
 
-        # % fewer positions searched = 1 - (Alpha-Beta average / Minimax average)
         reduction = 100 * (1 - ab["nodes"].mean() / mm["nodes"].mean())
 
         for algo, part in (("minimax", mm), ("alphabeta", ab)):
@@ -213,18 +182,14 @@ def main():
     out = config.RESULTS_DIR
     os.makedirs(out, exist_ok=True)
 
-    # 1. Minimax vs Alpha-Beta on identical states
     states = run_state_comparison(configs, config.STATES_PER_CONFIG, repeats, seed)
     states.to_csv(os.path.join(out, "state_comparison.csv"), index=False)
 
-    # 2. Games vs random baseline
     games = run_games_vs_random(configs, config.GAMES_VS_RANDOM, seed)
     games.to_csv(os.path.join(out, "games_vs_random.csv"), index=False)
 
-    # 3. AI vs AI
     run_ai_vs_ai(configs).to_csv(os.path.join(out, "ai_vs_ai.csv"), index=False)
 
-    # 4. Depth scaling
     run_depth_scaling(config.DEPTH_SCALING, repeats).to_csv(
         os.path.join(out, "depth_scaling.csv"), index=False)
 
