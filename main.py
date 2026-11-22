@@ -4,8 +4,6 @@ main.py - one entry point for the whole project.
     python main.py            # interactive menu
     python main.py gui | experiments | tests
 """
-import contextlib
-import io
 import sys
 
 from tictactoe import experiments, gui, plots, report
@@ -19,18 +17,15 @@ MENU = """
 ========================================"""
 
 
-def run_tests() -> bool:
-    print("\nRunning tests... (about a minute)")
-    return report.run_tests_with_checklist()
+def run_tests():
+    print("\nRunning tests... (about half a minute)")
+    return report.run_tests()
 
 
 def run_experiments_and_charts():
     print("\nRunning experiments... (a minute or two)")
-    # the experiments and charts run exactly as before; only their
-    # step-by-step progress output is hidden (all detail is in the CSVs)
-    with contextlib.redirect_stdout(io.StringIO()):
-        experiments.main([])
-        plots.main()
+    experiments.main()      # writes the CSVs (all detail is in them)
+    plots.main()            # draws the charts from the CSVs
     report.print_experiment_summary()
 
 

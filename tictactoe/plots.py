@@ -6,12 +6,13 @@ plots.py - draws the comparison charts from the CSV files in results/.
 It reads only the measured CSVs written by experiments.py; no numbers are
 typed in here. PNGs go to results/plots/.
 """
+import os
+
 import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import pandas as pd
-from matplotlib.ticker import FuncFormatter
 
 from . import config
 
@@ -30,15 +31,10 @@ plt.rcParams.update({
     "legend.frameon": False,
 })
 
-thousands = FuncFormatter(lambda v, _: f"{v:,.0f}" if v >= 1 else f"{v:g}")
-
-
 def save(fig, name):
-    path = config.PLOTS_DIR / name
     fig.tight_layout()
-    fig.savefig(path, dpi=150)
+    fig.savefig(os.path.join(config.PLOTS_DIR, name), dpi=150)
     plt.close(fig)
-    print("  wrote", path)
 
 
 def plot_depth_scaling(df):
@@ -57,7 +53,6 @@ def plot_depth_scaling(df):
                         xytext=(6, 0), textcoords="offset points", va="center",
                         fontsize=8.5, color=INK2)
         ax.set_yscale("log")
-        ax.yaxis.set_major_formatter(thousands)
         ax.set_xticks(sorted(sub.depth.unique()))
         ax.set_xlim(right=sub.depth.max() + 1.2)
         ax.set_title(f"Positions searched vs depth\n{n}x{n} board, {k} in a row, from the empty board",
@@ -84,7 +79,6 @@ def grouped_bars(summary, metric, xlabel, title, fname, log=True):
     ax.invert_yaxis()
     if log:
         ax.set_xscale("log")
-    ax.xaxis.set_major_formatter(thousands)
     ax.grid(axis="y", visible=False)
     ax.set_xlabel(xlabel)
     ax.set_title(title, loc="left")
@@ -93,7 +87,7 @@ def grouped_bars(summary, metric, xlabel, title, fname, log=True):
     save(fig, fname)
 
 
-def node_saving_pct(summary) -> pd.Series:
+def node_saving_pct(summary):
     """% fewer positions Alpha-Beta searched than Minimax, per configuration:
     summary.csv's node_reduction_pct (1 - Alpha-Beta average / Minimax average)."""
     return summary.drop_duplicates("config").set_index("config")["node_reduction_pct"]
@@ -141,9 +135,9 @@ def plot_outcomes(games):
 
 def main():
     r = config.RESULTS_DIR
-    config.PLOTS_DIR.mkdir(parents=True, exist_ok=True)
-    summary = pd.read_csv(r / "summary.csv")
-    plot_depth_scaling(pd.read_csv(r / "depth_scaling.csv"))
+    os.makedirs(config.PLOTS_DIR, exist_ok=True)
+    summary = pd.read_csv(os.path.join(r, "summary.csv"))
+    plot_depth_scaling(pd.read_csv(os.path.join(r, "depth_scaling.csv")))
     grouped_bars(summary, "mean_nodes", "Mean nodes per search (log scale)",
                  "Nodes explored on identical states: Minimax vs Alpha-Beta",
                  "nodes_per_config.png")
@@ -151,7 +145,7 @@ def main():
                  "Search time on identical states: Minimax vs Alpha-Beta",
                  "time_per_config.png")
     plot_reduction(summary)
-    plot_outcomes(pd.read_csv(r / "games_vs_random.csv"))
+    plot_outcomes(pd.read_csv(os.path.join(r, "games_vs_random.csv")))
 
 
 if __name__ == "__main__":

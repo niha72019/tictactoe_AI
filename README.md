@@ -18,12 +18,11 @@ pip install -r requirements.txt
 ## Run individual parts
 | What | Command |
 |---|---|
-| Console, you vs AI | `python -m tictactoe.play` (`--human O`, `--algo minimax`) |
-| 4x4 board | `python -m tictactoe.play --size 4 --win 4 --depth 3` |
+| Console, you vs AI | `python -m tictactoe.play` (board, depth, your side and algorithm are set in `config.py`) |
 | GUI (Tkinter): you vs AI, or AI vs AI | `python -m tictactoe.gui` (pick the mode in the window) |
-| All experiments → CSV | `python -m tictactoe.experiments` (`--quick` for a short run) |
+| All experiments → CSV | `python -m tictactoe.experiments` |
 | Charts from the CSVs | `python -m tictactoe.plots` |
-| Tests | `python -m pytest -q` |
+| Tests | `python -m pytest -v` (run from the project folder) |
 
 ## Settings
 Board size, win length, search depth, seeds and experiment sizes are all in
@@ -33,7 +32,7 @@ Board size, win length, search depth, seeds and experiment sizes are all in
 | File | Purpose |
 |---|---|
 | `config.py` | all settings (`GameSettings`: board size N, win length K, depth) |
-| `game.py` | N×N engine: state, moves, generated winning lines, terminal test, utility |
+| `game.py` | N×N engine: state, moves, generated winning lines, terminal test |
 | `heuristics.py` | open-line evaluation for depth-limited search |
 | `search.py` | Minimax and Alpha-Beta with node counting and timing |
 | `agents.py` | search agent, random baseline, human player, `play_game` |

@@ -15,33 +15,30 @@ every horizontal, vertical, diagonal and anti-diagonal run of K cells.
 For each cell we also keep the list of lines through it, so after a move
 only those lines need to be checked.
 """
-from typing import List, Optional, Sequence, Tuple
-
-from .config import GameSettings, DEFAULT_SETTINGS
+from .config import DEFAULT_SETTINGS
 
 X, O, EMPTY = "X", "O", "."
-State = Tuple[str, ...]
 
 
-def other(player: str) -> str:
+def other(player):
     return O if player == X else X
 
 
 class TicTacToe:
     """Rules of N x N Tic-Tac-Toe with win length K."""
 
-    def __init__(self, settings: GameSettings = DEFAULT_SETTINGS):
+    def __init__(self, settings=DEFAULT_SETTINGS):
         self.settings = settings
         self.n = settings.board_size
         self.k = settings.win_length
-        self.lines: List[Tuple[int, ...]] = self._generate_lines()
-        self.lines_through: List[List[Tuple[int, ...]]] = [
+        self.lines = self._generate_lines()           # every winning line (tuple of cells)
+        self.lines_through = [                        # lines passing through each cell
             [line for line in self.lines if cell in line]
             for cell in range(self.n * self.n)
         ]
 
     # ---------------------------------------------------------------- lines
-    def _generate_lines(self) -> List[Tuple[int, ...]]:
+    def _generate_lines(self):
         n, k = self.n, self.k
         directions = [(0, 1), (1, 0), (1, 1), (1, -1)]  # → ↓ ↘ ↙
         lines = []
@@ -55,18 +52,18 @@ class TicTacToe:
         return lines
 
     # ---------------------------------------------------------------- state
-    def initial_state(self) -> State:
+    def initial_state(self):
         return (EMPTY,) * (self.n * self.n)
 
-    def to_move(self, state: State) -> str:
+    def to_move(self, state):
         """Whose turn it is (X moves first)."""
         return X if state.count(X) == state.count(O) else O
 
-    def actions(self, state: State) -> List[int]:
+    def actions(self, state):
         """Legal moves = indices of empty cells, in row-major order."""
         return [i for i, cell in enumerate(state) if cell == EMPTY]
 
-    def result(self, state: State, move: int) -> State:
+    def result(self, state, move):
         """Successor state after the player to move plays `move`."""
         if state[move] != EMPTY:
             raise ValueError(f"cell {move} is already occupied")
@@ -75,7 +72,7 @@ class TicTacToe:
         return tuple(cells)
 
     # ------------------------------------------------------------- terminal
-    def is_win_at(self, state: State, cell: int) -> bool:
+    def is_win_at(self, state, cell):
         """Does the mark on `cell` complete a line? (fast check after a move)"""
         mark = state[cell]
         if mark == EMPTY:
@@ -83,7 +80,7 @@ class TicTacToe:
         return any(all(state[i] == mark for i in line)
                    for line in self.lines_through[cell])
 
-    def winner(self, state: State) -> Optional[str]:
+    def winner(self, state):
         """'X' or 'O' if that player has K in a line, else None."""
         for line in self.lines:
             first = state[line[0]]
@@ -91,28 +88,21 @@ class TicTacToe:
                 return first
         return None
 
-    def winning_line(self, state: State) -> Optional[Tuple[int, ...]]:
+    def winning_line(self, state):
         for line in self.lines:
             first = state[line[0]]
             if first != EMPTY and all(state[i] == first for i in line):
                 return line
         return None
 
-    def is_full(self, state: State) -> bool:
+    def is_full(self, state):
         return EMPTY not in state
 
-    def is_terminal(self, state: State) -> bool:
+    def is_terminal(self, state):
         return self.winner(state) is not None or self.is_full(state)
 
-    def utility(self, state: State, player: str) -> int:
-        """+1 if `player` has won, -1 if they lost, 0 for a draw/non-terminal."""
-        w = self.winner(state)
-        if w is None:
-            return 0
-        return 1 if w == player else -1
-
     # -------------------------------------------------------------- display
-    def render(self, state: State) -> str:
+    def render(self, state):
         n = self.n
         width = len(str(n * n - 1))
         rows = []
@@ -126,15 +116,8 @@ class TicTacToe:
         sep = "\n" + "-" * len(rows[0]) + "\n"
         return sep.join(rows)
 
-    def state_from_string(self, text: str) -> State:
-        """Build a state from e.g. 'XO.X.O...' (whitespace ignored)."""
-        cells = tuple(ch for ch in text if not ch.isspace())
-        if len(cells) != self.n * self.n or any(c not in (X, O, EMPTY) for c in cells):
-            raise ValueError(f"expected {self.n * self.n} cells of X/O/.")
-        return cells
 
-
-def apply_moves(game: TicTacToe, moves: Sequence[int]) -> State:
+def apply_moves(game, moves):
     state = game.initial_state()
     for m in moves:
         state = game.result(state, m)

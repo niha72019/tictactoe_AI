@@ -16,31 +16,29 @@ skips branches that cannot change the decision. The tests check this.
 """
 import math
 import time
-from dataclasses import dataclass
-from typing import Callable, Optional
 
 from .config import DEPTH_PENALTY, DRAW_SCORE, WIN_SCORE
-from .game import EMPTY, State, TicTacToe, other
+from .game import EMPTY, other
 from .heuristics import evaluate as default_evaluate
 
-EvalFn = Callable[[TicTacToe, State, str], float]
 
-
-@dataclass
 class SearchResult:
-    algorithm: str
-    move: int                 # chosen cell index
-    value: float              # backed-up value of the root for the player to move
-    nodes: int                # number of states visited (root included)
-    time_s: float             # wall-clock search time in seconds
-    max_depth: Optional[int]
-    cutoffs: int = 0          # number of prunings (Alpha-Beta only)
+    """What one search returns."""
+
+    def __init__(self, algorithm, move, value, nodes, time_s, max_depth, cutoffs=0):
+        self.algorithm = algorithm
+        self.move = move              # chosen cell index
+        self.value = value            # backed-up value of the root for the player to move
+        self.nodes = nodes            # number of states visited (root included)
+        self.time_s = time_s          # wall-clock search time in seconds
+        self.max_depth = max_depth
+        self.cutoffs = cutoffs        # number of prunings (Alpha-Beta only)
 
 
 class _Searcher:
     """Shared machinery: node counter, terminal test and depth cut-off."""
 
-    def __init__(self, game: TicTacToe, max_depth: Optional[int], evaluate_fn: EvalFn):
+    def __init__(self, game, max_depth, evaluate_fn):
         self.game = game
         self.max_depth = max_depth
         self.evaluate_fn = evaluate_fn
@@ -48,7 +46,7 @@ class _Searcher:
         self.cutoffs = 0
         self.max_player = None
 
-    def leaf_value(self, state: State, last_move: Optional[int], ply: int) -> Optional[float]:
+    def leaf_value(self, state, last_move, ply):
         """Value if the search must stop here (terminal or depth limit), else None."""
         if last_move is not None and self.game.is_win_at(state, last_move):
             score = WIN_SCORE - DEPTH_PENALTY * ply
@@ -59,7 +57,7 @@ class _Searcher:
             return self.evaluate_fn(self.game, state, self.max_player)
         return None
 
-    def check_root(self, state: State):
+    def check_root(self, state):
         if self.game.is_terminal(state):
             raise ValueError("cannot search from a terminal state")
         self.max_player = self.game.to_move(state)
@@ -67,7 +65,7 @@ class _Searcher:
 
 # ------------------------------------------------------------------ Minimax
 class _Minimax(_Searcher):
-    def value(self, state: State, player: str, last_move: Optional[int], ply: int) -> float:
+    def value(self, state, player, last_move, ply):
         self.nodes += 1
         leaf = self.leaf_value(state, last_move, ply)
         if leaf is not None:
@@ -84,8 +82,7 @@ class _Minimax(_Searcher):
         return best
 
 
-def minimax_search(game: TicTacToe, state: State, max_depth: Optional[int] = None,
-                   evaluate_fn: EvalFn = default_evaluate) -> SearchResult:
+def minimax_search(game, state, max_depth=None, evaluate_fn=default_evaluate):
     """Best move for the player to move, by plain (exhaustive) Minimax."""
     s = _Minimax(game, max_depth, evaluate_fn)
     s.check_root(state)
@@ -103,8 +100,7 @@ def minimax_search(game: TicTacToe, state: State, max_depth: Optional[int] = Non
 
 # --------------------------------------------------------------- Alpha-Beta
 class _AlphaBeta(_Searcher):
-    def value(self, state: State, player: str, last_move: Optional[int], ply: int,
-              alpha: float, beta: float) -> float:
+    def value(self, state, player, last_move, ply, alpha, beta):
         self.nodes += 1
         leaf = self.leaf_value(state, last_move, ply)
         if leaf is not None:
@@ -131,8 +127,7 @@ class _AlphaBeta(_Searcher):
         return best
 
 
-def alphabeta_search(game: TicTacToe, state: State, max_depth: Optional[int] = None,
-                     evaluate_fn: EvalFn = default_evaluate) -> SearchResult:
+def alphabeta_search(game, state, max_depth=None, evaluate_fn=default_evaluate):
     """Best move for the player to move, by Minimax with Alpha-Beta pruning."""
     s = _AlphaBeta(game, max_depth, evaluate_fn)
     s.check_root(state)

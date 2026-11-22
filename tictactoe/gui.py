@@ -38,9 +38,9 @@ class TicTacToeGUI:
             ttk.Label(panel, text=label).grid(row=0, column=col, padx=(6, 2))
             widget.grid(row=0, column=col + 1)
 
-        add("N", ttk.Spinbox(panel, from_=3, to=6, width=3, textvariable=self.size_var), 0)
-        add("K", ttk.Spinbox(panel, from_=3, to=6, width=3, textvariable=self.win_var), 2)
-        add("Depth (0=full)", ttk.Spinbox(panel, from_=0, to=16, width=3,
+        add("N", ttk.Spinbox(panel, from_=3, to=4, width=3, textvariable=self.size_var), 0)
+        add("K", ttk.Spinbox(panel, from_=3, to=4, width=3, textvariable=self.win_var), 2)
+        add("Depth (0=full)", ttk.Spinbox(panel, from_=0, to=5, width=3,
                                           textvariable=self.depth_var), 4)
         add("Algorithm", ttk.Combobox(panel, values=["alphabeta", "minimax"], width=10,
                                       state="readonly", textvariable=self.algo_var), 6)
@@ -59,13 +59,15 @@ class TicTacToeGUI:
 
     # ------------------------------------------------------------ game flow
     def new_game(self):
-        n = max(3, self.size_var.get())
+        # keep typed-in values inside the spinbox limits: N 3-4, K 3-N, depth 0-5
+        n = min(max(3, self.size_var.get()), 4)
         k = min(max(3, self.win_var.get()), n)
-        depth = self.depth_var.get() or None
+        depth = min(max(0, self.depth_var.get()), 5) or None
         if depth is None and n > 3:   # full search is infeasible beyond 3x3
             depth = config.LARGE_BOARD_DEFAULT_DEPTH
-            self.depth_var.set(depth)
+        self.size_var.set(n)
         self.win_var.set(k)
+        self.depth_var.set(depth or 0)
         self.game = TicTacToe(GameSettings(n, k, depth))
         self.state = self.game.initial_state()
         self.ai = SearchAgent(self.algo_var.get(), depth)
@@ -111,7 +113,7 @@ class TicTacToeGUI:
             if self.ai_vs_ai:
                 self.root.after(500, self.maybe_ai_move, game_id)
 
-    def finish_if_over(self) -> bool:
+    def finish_if_over(self):
         if not self.game.is_terminal(self.state):
             return False
         w = self.game.winner(self.state)

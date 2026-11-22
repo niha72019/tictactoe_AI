@@ -4,12 +4,9 @@ config.py - every tunable setting of the project lives here, and only here.
 Other modules never hard-code a board size, win length or search depth;
 they read these values (or receive a `GameSettings` built from them).
 """
-from dataclasses import dataclass
-from pathlib import Path
-from typing import Optional
+import os
 
 
-@dataclass(frozen=True)
 class GameSettings:
     """One game configuration: board size, win length and search depth.
 
@@ -18,17 +15,17 @@ class GameSettings:
     max_depth  : how many plies the AI looks ahead; None = search to the end
                  of the game (exact Minimax, only practical for 3x3).
     """
-    board_size: int = 3
-    win_length: int = 3
-    max_depth: Optional[int] = None
 
-    def __post_init__(self):
-        if self.board_size < 1:
+    def __init__(self, board_size=3, win_length=3, max_depth=None):
+        if board_size < 1:
             raise ValueError("board_size must be >= 1")
-        if not 1 <= self.win_length <= self.board_size:
+        if not 1 <= win_length <= board_size:
             raise ValueError("win_length must be between 1 and board_size")
-        if self.max_depth is not None and self.max_depth < 1:
+        if max_depth is not None and max_depth < 1:
             raise ValueError("max_depth must be >= 1 or None")
+        self.board_size = board_size
+        self.win_length = win_length
+        self.max_depth = max_depth
 
 
 # --------------------------------------------------------------------------
@@ -36,13 +33,18 @@ class GameSettings:
 # --------------------------------------------------------------------------
 BOARD_SIZE = 3
 WIN_LENGTH = 3
-SEARCH_DEPTH: Optional[int] = None          # None = full (exact) search
+SEARCH_DEPTH = None                         # None = full (exact) search
 
 DEFAULT_SETTINGS = GameSettings(BOARD_SIZE, WIN_LENGTH, SEARCH_DEPTH)
 
 # Default search depth offered for boards larger than 3x3 in the
 # interactive game, where a full search is infeasible.
 LARGE_BOARD_DEFAULT_DEPTH = 3
+
+# Console game (python -m tictactoe.play): board size, win length and
+# depth come from the three settings above.
+PLAY_HUMAN_SIDE = "X"                       # "X" (you move first) or "O"
+PLAY_ALGORITHM = "alphabeta"                # "alphabeta" or "minimax"
 
 # --------------------------------------------------------------------------
 # Scoring
@@ -62,8 +64,9 @@ HEURISTIC_SCALE = 0.5
 # Experiments
 # --------------------------------------------------------------------------
 RANDOM_SEED = 42
-RESULTS_DIR = Path(__file__).resolve().parent.parent / "results"
-PLOTS_DIR = RESULTS_DIR / "plots"
+PROJECT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+RESULTS_DIR = os.path.join(PROJECT_DIR, "results")
+PLOTS_DIR = os.path.join(RESULTS_DIR, "plots")
 
 # Configurations used for the Minimax vs Alpha-Beta comparison on
 # identical board states and for the games against the random baseline.

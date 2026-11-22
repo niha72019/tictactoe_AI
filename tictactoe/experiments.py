@@ -4,8 +4,7 @@ experiments.py - runs every experiment and writes the measured results to CSV.
 Nothing here is typed in by hand: every number in results/*.csv comes from
 actually running the search code.
 
-    python -m tictactoe.experiments            # full run (settings in config.py)
-    python -m tictactoe.experiments --quick    # small run for a fast check
+    python -m tictactoe.experiments            # settings are in config.py
 
 Outputs (in results/):
   state_comparison.csv  Minimax vs Alpha-Beta on identical, seeded random states
@@ -15,39 +14,38 @@ Outputs (in results/):
   depth_scaling.csv     nodes and time from the empty board vs search depth
   summary.csv           aggregated table built from the files above
 """
-import argparse
+import os
 import random
-import statistics
-from typing import List, Optional
 
 import pandas as pd
 
 from . import config
 from .agents import RandomAgent, SearchAgent, outcome_for, play_game
 from .config import GameSettings
-from .game import State, TicTacToe, X, O
+from .game import TicTacToe, X, O
 from .search import ALGORITHMS
 
 
-def label(s: GameSettings) -> str:
+def label(s):
     depth = "full" if s.max_depth is None else f"d{s.max_depth}"
     return f"{s.board_size}x{s.board_size} k{s.win_length} {depth}"
 
 
-def timed_search(algorithm: str, game: TicTacToe, state: State, depth: Optional[int],
-                 repeats: int):
-    """Run a search `repeats` times; keep its result and the median time."""
+def timed_search(algorithm, game, state, depth, repeats):
+    """Run a search `repeats` times (3, see config.TIMING_REPEATS); keep its
+    result and the median time (the middle of the 3 sorted times)."""
     fn = ALGORITHMS[algorithm]
     results = [fn(game, state, depth) for _ in range(repeats)]
     r = results[0]
-    r.time_s = statistics.median(x.time_s for x in results)
+    times = [x.time_s for x in results]
+    r.time_s = sorted(times)[1]
     return r
 
 
 # --------------------------------------------------------------------------
 # 1. Minimax vs Alpha-Beta on identical board states
 # --------------------------------------------------------------------------
-def random_states(game: TicTacToe, count: int, rng: random.Random) -> List[State]:
+def random_states(game, count, rng):
     """Distinct non-terminal states reached by random play of random length."""
     states, seen, attempts = [], set(), 0
     max_plies = game.n * game.n - 1
@@ -64,14 +62,13 @@ def random_states(game: TicTacToe, count: int, rng: random.Random) -> List[State
     return states
 
 
-def run_state_comparison(configs, states_per_config, repeats, seed) -> pd.DataFrame:
+def run_state_comparison(configs, states_per_config, repeats, seed):
     rows = []
     for s in configs:
         game = TicTacToe(s)
         # seeded by the setting's name (not its place in the list), so adding or
         # reordering settings never changes the positions another setting is tested on
         states = random_states(game, states_per_config, random.Random(f"{seed}:{label(s)}"))
-        print(f"  [{label(s)}] comparing on {len(states)} states")
         for si, state in enumerate(states):
             for algo in ("minimax", "alphabeta"):
                 r = timed_search(algo, game, state, s.max_depth, repeats)
@@ -101,13 +98,12 @@ def play_logged(game, agent_x, agent_o, ai_agents):
     return record, stats
 
 
-def run_games_vs_random(configs, games, seed) -> pd.DataFrame:
+def run_games_vs_random(configs, games, seed):
     rows = []
     for s in configs:
         game = TicTacToe(s)
         for algo in ("minimax", "alphabeta"):
             for ai_side in (X, O):
-                print(f"  [{label(s)}] {algo} as {ai_side} vs random: {games} games")
                 for g in range(games):
                     ai = SearchAgent(algo, s.max_depth)
                     rnd = RandomAgent(seed + g)    # same opponent seeds for both algorithms
@@ -126,7 +122,7 @@ def run_games_vs_random(configs, games, seed) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-def run_ai_vs_ai(configs) -> pd.DataFrame:
+def run_ai_vs_ai(configs):
     rows = []
     for s in configs:
         game = TicTacToe(s)
@@ -145,7 +141,7 @@ def run_ai_vs_ai(configs) -> pd.DataFrame:
 # --------------------------------------------------------------------------
 # 3. Depth scaling from the empty board
 # --------------------------------------------------------------------------
-def run_depth_scaling(scaling, repeats) -> pd.DataFrame:
+def run_depth_scaling(scaling, repeats):
     rows = []
     for n, spec in scaling.items():
         for d in spec["depths"]:
@@ -153,8 +149,6 @@ def run_depth_scaling(scaling, repeats) -> pd.DataFrame:
             game = TicTacToe(s)
             for algo in ("minimax", "alphabeta"):
                 r = timed_search(algo, game, game.initial_state(), d, repeats)
-                print(f"  [{n}x{n} k{s.win_length}] depth {d} {algo}: "
-                      f"{r.nodes:,} nodes, {r.time_s:.3f}s")
                 rows.append(dict(board_size=n, win_length=s.win_length, depth=d,
                                  algorithm=algo, move=r.move, value=round(r.value, 6),
                                  nodes=r.nodes, time_s=r.time_s, cutoffs=r.cutoffs))
@@ -164,7 +158,7 @@ def run_depth_scaling(scaling, repeats) -> pd.DataFrame:
 # --------------------------------------------------------------------------
 # Summary
 # --------------------------------------------------------------------------
-def build_summary(states: pd.DataFrame, games: pd.DataFrame) -> pd.DataFrame:
+def build_summary(states, games):
     per_algo = (states.groupby(["config", "algorithm"], sort=False)
                 .agg(states=("state_id", "count"), mean_nodes=("nodes", "mean"),
                      total_nodes=("nodes", "sum"), mean_time_s=("time_s", "mean"),
@@ -190,43 +184,30 @@ def build_summary(states: pd.DataFrame, games: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
-def main(argv=None):
-    p = argparse.ArgumentParser(description="Run all experiments and save CSVs")
-    p.add_argument("--quick", action="store_true", help="small, fast run")
-    args = p.parse_args(argv)
-
+def main():
     configs = config.EXPERIMENT_CONFIGS
-    states_n, games_n, repeats = (config.STATES_PER_CONFIG, config.GAMES_VS_RANDOM,
-                                  config.TIMING_REPEATS)
-    scaling = config.DEPTH_SCALING
-    if args.quick:
-        states_n, games_n, repeats = 5, 3, 1
-        scaling = {n: dict(spec, depths=spec["depths"][:4]) for n, spec in scaling.items()}
-
-    # quick runs go to their own folder so they never overwrite the full results
-    out = config.RESULTS_DIR / "quick" if args.quick else config.RESULTS_DIR
-    out.mkdir(parents=True, exist_ok=True)
+    repeats = config.TIMING_REPEATS
     seed = config.RANDOM_SEED
+    out = config.RESULTS_DIR
+    os.makedirs(out, exist_ok=True)
 
-    print("1/4  Minimax vs Alpha-Beta on identical states")
-    states = run_state_comparison(configs, states_n, repeats, seed)
-    states.to_csv(out / "state_comparison.csv", index=False)
+    # 1. Minimax vs Alpha-Beta on identical states
+    states = run_state_comparison(configs, config.STATES_PER_CONFIG, repeats, seed)
+    states.to_csv(os.path.join(out, "state_comparison.csv"), index=False)
 
-    print("2/4  Games vs random baseline")
-    games = run_games_vs_random(configs, games_n, seed)
-    games.to_csv(out / "games_vs_random.csv", index=False)
+    # 2. Games vs random baseline
+    games = run_games_vs_random(configs, config.GAMES_VS_RANDOM, seed)
+    games.to_csv(os.path.join(out, "games_vs_random.csv"), index=False)
 
-    print("3/4  AI vs AI")
-    run_ai_vs_ai(configs).to_csv(out / "ai_vs_ai.csv", index=False)
+    # 3. AI vs AI
+    run_ai_vs_ai(configs).to_csv(os.path.join(out, "ai_vs_ai.csv"), index=False)
 
-    print("4/4  Depth scaling")
-    run_depth_scaling(scaling, repeats).to_csv(out / "depth_scaling.csv", index=False)
+    # 4. Depth scaling
+    run_depth_scaling(config.DEPTH_SCALING, repeats).to_csv(
+        os.path.join(out, "depth_scaling.csv"), index=False)
 
     summary = build_summary(states, games)
-    summary.to_csv(out / "summary.csv", index=False)
-    with pd.option_context("display.width", 200, "display.max_columns", 20):
-        print("\nSummary:\n", summary.round(4).to_string(index=False))
-    print(f"\nCSV files written to {out}")
+    summary.to_csv(os.path.join(out, "summary.csv"), index=False)
 
 
 if __name__ == "__main__":

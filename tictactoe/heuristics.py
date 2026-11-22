@@ -12,10 +12,10 @@ The score is (mine - theirs) / (mine + theirs + 1), which lies strictly in
 always smaller than a real win (+1) or loss (-1).
 """
 from .config import HEURISTIC_SCALE
-from .game import EMPTY, State, TicTacToe, other
+from .game import other
 
 
-def open_line_counts(game: TicTacToe, state: State, player: str) -> dict:
+def open_line_counts(game, state, player):
     """{m: number of open lines holding exactly m of `player`'s marks}."""
     opponent = other(player)
     counts = {}
@@ -34,12 +34,12 @@ def open_line_counts(game: TicTacToe, state: State, player: str) -> dict:
     return counts
 
 
-def line_score(game: TicTacToe, state: State, player: str) -> float:
+def line_score(game, state, player):
     return sum(n * 10 ** (m - 1)
                for m, n in open_line_counts(game, state, player).items())
 
 
-def evaluate(game: TicTacToe, state: State, player: str) -> float:
+def evaluate(game, state, player):
     """Heuristic value of `state` for `player`, in (-HEURISTIC_SCALE, HEURISTIC_SCALE)."""
     mine = line_score(game, state, player)
     theirs = line_score(game, state, other(player))

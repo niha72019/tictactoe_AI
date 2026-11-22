@@ -8,31 +8,29 @@ RandomAgent  - the baseline: a uniformly random legal move (seeded RNG).
 HumanAgent   - asks the user in the console.
 """
 import random
-from dataclasses import dataclass, field
-from typing import Callable, List, Optional
 
-from .game import State, TicTacToe, X, O
-from .search import ALGORITHMS, SearchResult
+from .game import X, O
+from .search import ALGORITHMS
 
 
 class Agent:
     name = "agent"
 
-    def choose_move(self, game: TicTacToe, state: State) -> int:
+    def choose_move(self, game, state):
         raise NotImplementedError
 
 
 class SearchAgent(Agent):
-    def __init__(self, algorithm: str = "alphabeta", max_depth: Optional[int] = None):
+    def __init__(self, algorithm="alphabeta", max_depth=None):
         if algorithm not in ALGORITHMS:
             raise ValueError(f"unknown algorithm {algorithm!r}; choose from {list(ALGORITHMS)}")
         self.algorithm = algorithm
         self.search = ALGORITHMS[algorithm]
         self.max_depth = max_depth
         self.name = algorithm
-        self.history: List[SearchResult] = []
+        self.history = []             # one SearchResult per move made
 
-    def choose_move(self, game: TicTacToe, state: State) -> int:
+    def choose_move(self, game, state):
         result = self.search(game, state, self.max_depth)
         self.history.append(result)
         return result.move
@@ -41,20 +39,20 @@ class SearchAgent(Agent):
 class RandomAgent(Agent):
     name = "random"
 
-    def __init__(self, seed: Optional[int] = None):
+    def __init__(self, seed=None):
         self.rng = random.Random(seed)
 
-    def choose_move(self, game: TicTacToe, state: State) -> int:
+    def choose_move(self, game, state):
         return self.rng.choice(game.actions(state))
 
 
 class HumanAgent(Agent):
     name = "human"
 
-    def __init__(self, input_fn: Callable[[str], str] = input):
+    def __init__(self, input_fn=input):
         self.input_fn = input_fn
 
-    def choose_move(self, game: TicTacToe, state: State) -> int:
+    def choose_move(self, game, state):
         legal = game.actions(state)
         while True:
             text = self.input_fn(f"Your move ({game.to_move(state)}), cell number: ").strip()
@@ -63,16 +61,16 @@ class HumanAgent(Agent):
             print(f"  Invalid. Choose one of: {legal}")
 
 
-@dataclass
 class GameRecord:
-    winner: Optional[str]          # 'X', 'O' or None for a draw
-    moves: List[int] = field(default_factory=list)
-    final_state: Optional[State] = None
+    """The result of one finished game."""
+
+    def __init__(self, winner, moves=None, final_state=None):
+        self.winner = winner                              # 'X', 'O' or None for a draw
+        self.moves = moves if moves is not None else []
+        self.final_state = final_state
 
 
-def play_game(game: TicTacToe, agent_x: Agent, agent_o: Agent,
-              on_move: Optional[Callable[[State, int, str], None]] = None,
-              start_state: Optional[State] = None) -> GameRecord:
+def play_game(game, agent_x, agent_o, on_move=None, start_state=None):
     """Play until the game ends. `on_move(state, move, player)` is called after each move."""
     state = start_state if start_state is not None else game.initial_state()
     moves = []
@@ -87,7 +85,7 @@ def play_game(game: TicTacToe, agent_x: Agent, agent_o: Agent,
     return GameRecord(game.winner(state), moves, state)
 
 
-def outcome_for(record: GameRecord, side: str) -> str:
+def outcome_for(record, side):
     """'win' / 'draw' / 'loss' from the point of view of `side`."""
     if record.winner is None:
         return "draw"

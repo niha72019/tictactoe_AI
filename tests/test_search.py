@@ -104,8 +104,8 @@ def test_alphabeta_prunes_from_empty_board(game3):
 
 
 # ------------------------------- Alpha-Beta == Minimax (4x4, depth-limited)
-@pytest.mark.parametrize("n,k,depth", [(4, 4, 3)])
-def test_alphabeta_same_move_depth_limited(n, k, depth):
+def test_alphabeta_same_move_depth_limited():
+    n, k, depth = 4, 4, 3
     game = TicTacToe(GameSettings(n, k, depth))
     rng = random.Random(1000 + n * 10 + k + depth)
     tested = 0
