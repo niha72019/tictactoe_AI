@@ -38,8 +38,6 @@ NUMBERS = {"1": "gui", "2": "experiments", "3": "tests"}
 
 
 def main():
-    if hasattr(sys.stdout, "reconfigure"):      # never crash on ✓ / ✗ in an old console
-        sys.stdout.reconfigure(errors="replace")
     if len(sys.argv) > 1:
         name = sys.argv[1]
         if name not in ACTIONS:
@@ -49,7 +47,7 @@ def main():
     while True:
         print(MENU)
         try:
-            choice = input("Choose an option: ").strip().lstrip("﻿")
+            choice = input("Choose an option: ").strip()
         except (EOFError, KeyboardInterrupt):
             print()
             break

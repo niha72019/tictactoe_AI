@@ -13,13 +13,21 @@ Both algorithms
 Because of the identical move order and tie-breaking, Alpha-Beta is
 guaranteed to return the same move and value as Minimax - pruning only
 skips branches that cannot change the decision. The tests check this.
+
+Arguments used by the recursive functions:
+  player     whose turn it is in `state`
+  max_player the player the search is choosing a move for (the root player)
+  last_move  the cell just played to reach `state` (to check for a win fast)
+  depth      how many plies below the root `state` is
+  max_depth  stop and use the heuristic at this depth (None = search to the end)
+  counter    {"nodes": ..., "cutoffs": ...}, updated as the search runs
 """
 import math
 import time
 
 from .config import DEPTH_PENALTY, DRAW_SCORE, WIN_SCORE
 from .game import EMPTY, other
-from .heuristics import evaluate as default_evaluate
+from .heuristics import evaluate
 
 
 class SearchResult:
@@ -35,115 +43,114 @@ class SearchResult:
         self.cutoffs = cutoffs        # number of prunings (Alpha-Beta only)
 
 
-class _Searcher:
-    """Shared machinery: node counter, terminal test and depth cut-off."""
+def leaf_value(game, state, max_player, last_move, depth, max_depth):
+    """Value if the search must stop here (game over or depth limit), else None."""
+    if game.is_win_at(state, last_move):
+        score = WIN_SCORE - DEPTH_PENALTY * depth
+        if state[last_move] == max_player:
+            return score
+        return -score
+    if EMPTY not in state:
+        return DRAW_SCORE
+    if max_depth is not None and depth >= max_depth:
+        return evaluate(game, state, max_player)
+    return None
 
-    def __init__(self, game, max_depth, evaluate_fn):
-        self.game = game
-        self.max_depth = max_depth
-        self.evaluate_fn = evaluate_fn
-        self.nodes = 0
-        self.cutoffs = 0
-        self.max_player = None
 
-    def leaf_value(self, state, last_move, ply):
-        """Value if the search must stop here (terminal or depth limit), else None."""
-        if last_move is not None and self.game.is_win_at(state, last_move):
-            score = WIN_SCORE - DEPTH_PENALTY * ply
-            return score if state[last_move] == self.max_player else -score
-        if EMPTY not in state:
-            return DRAW_SCORE
-        if self.max_depth is not None and ply >= self.max_depth:
-            return self.evaluate_fn(self.game, state, self.max_player)
-        return None
-
-    def check_root(self, state):
-        if self.game.is_terminal(state):
-            raise ValueError("cannot search from a terminal state")
-        self.max_player = self.game.to_move(state)
+def check_root(game, state):
+    if game.is_terminal(state):
+        raise ValueError("cannot search from a terminal state")
 
 
 # ------------------------------------------------------------------ Minimax
-class _Minimax(_Searcher):
-    def value(self, state, player, last_move, ply):
-        self.nodes += 1
-        leaf = self.leaf_value(state, last_move, ply)
-        if leaf is not None:
-            return leaf
-        game = self.game
-        if player == self.max_player:
-            best = -math.inf
-            for a in game.actions(state):
-                best = max(best, self.value(game.result(state, a), other(player), a, ply + 1))
-        else:
-            best = math.inf
-            for a in game.actions(state):
-                best = min(best, self.value(game.result(state, a), other(player), a, ply + 1))
-        return best
+def minimax(game, state, player, max_player, last_move, depth, max_depth, counter):
+    counter["nodes"] += 1
+    leaf = leaf_value(game, state, max_player, last_move, depth, max_depth)
+    if leaf is not None:
+        return leaf
+
+    if player == max_player:                      # Max: take the highest value
+        best = -math.inf
+        for a in game.actions(state):
+            child = game.result(state, a)
+            v = minimax(game, child, other(player), max_player, a, depth + 1, max_depth, counter)
+            best = max(best, v)
+    else:                                         # Min: take the lowest value
+        best = math.inf
+        for a in game.actions(state):
+            child = game.result(state, a)
+            v = minimax(game, child, other(player), max_player, a, depth + 1, max_depth, counter)
+            best = min(best, v)
+    return best
 
 
-def minimax_search(game, state, max_depth=None, evaluate_fn=default_evaluate):
+def minimax_search(game, state, max_depth=None):
     """Best move for the player to move, by plain (exhaustive) Minimax."""
-    s = _Minimax(game, max_depth, evaluate_fn)
-    s.check_root(state)
+    check_root(game, state)
+    max_player = game.to_move(state)
+    counter = {"nodes": 1, "cutoffs": 0}          # 1 = the root
     start = time.perf_counter()
-    s.nodes = 1                                     # the root
     best_move, best_value = None, -math.inf
-    opponent = other(s.max_player)
     for a in game.actions(state):
-        v = s.value(game.result(state, a), opponent, a, 1)
+        child = game.result(state, a)
+        v = minimax(game, child, other(max_player), max_player, a, 1, max_depth, counter)
         if v > best_value:
             best_move, best_value = a, v
     elapsed = time.perf_counter() - start
-    return SearchResult("minimax", best_move, best_value, s.nodes, elapsed, max_depth)
+    return SearchResult("minimax", best_move, best_value, counter["nodes"], elapsed, max_depth)
 
 
 # --------------------------------------------------------------- Alpha-Beta
-class _AlphaBeta(_Searcher):
-    def value(self, state, player, last_move, ply, alpha, beta):
-        self.nodes += 1
-        leaf = self.leaf_value(state, last_move, ply)
-        if leaf is not None:
-            return leaf
-        game = self.game
-        if player == self.max_player:
-            best = -math.inf
-            for a in game.actions(state):
-                best = max(best, self.value(game.result(state, a), other(player), a,
-                                            ply + 1, alpha, beta))
-                alpha = max(alpha, best)
-                if alpha >= beta:          # Min will never allow this branch
-                    self.cutoffs += 1
-                    break
-        else:
-            best = math.inf
-            for a in game.actions(state):
-                best = min(best, self.value(game.result(state, a), other(player), a,
-                                            ply + 1, alpha, beta))
-                beta = min(beta, best)
-                if alpha >= beta:          # Max will never allow this branch
-                    self.cutoffs += 1
-                    break
-        return best
+def alphabeta(game, state, player, max_player, last_move, depth, max_depth, alpha, beta,
+              counter):
+    counter["nodes"] += 1
+    leaf = leaf_value(game, state, max_player, last_move, depth, max_depth)
+    if leaf is not None:
+        return leaf
+
+    if player == max_player:                      # Max: raise alpha
+        best = -math.inf
+        for a in game.actions(state):
+            child = game.result(state, a)
+            v = alphabeta(game, child, other(player), max_player, a, depth + 1, max_depth,
+                          alpha, beta, counter)
+            best = max(best, v)
+            alpha = max(alpha, best)
+            if alpha >= beta:                     # Min will never allow this branch
+                counter["cutoffs"] += 1
+                break
+    else:                                         # Min: lower beta
+        best = math.inf
+        for a in game.actions(state):
+            child = game.result(state, a)
+            v = alphabeta(game, child, other(player), max_player, a, depth + 1, max_depth,
+                          alpha, beta, counter)
+            best = min(best, v)
+            beta = min(beta, best)
+            if alpha >= beta:                     # Max will never allow this branch
+                counter["cutoffs"] += 1
+                break
+    return best
 
 
-def alphabeta_search(game, state, max_depth=None, evaluate_fn=default_evaluate):
+def alphabeta_search(game, state, max_depth=None):
     """Best move for the player to move, by Minimax with Alpha-Beta pruning."""
-    s = _AlphaBeta(game, max_depth, evaluate_fn)
-    s.check_root(state)
+    check_root(game, state)
+    max_player = game.to_move(state)
+    counter = {"nodes": 1, "cutoffs": 0}          # 1 = the root
     start = time.perf_counter()
-    s.nodes = 1
     best_move, best_value = None, -math.inf
     alpha, beta = -math.inf, math.inf
-    opponent = other(s.max_player)
     for a in game.actions(state):
-        v = s.value(game.result(state, a), opponent, a, 1, alpha, beta)
+        child = game.result(state, a)
+        v = alphabeta(game, child, other(max_player), max_player, a, 1, max_depth,
+                      alpha, beta, counter)
         if v > best_value:
             best_move, best_value = a, v
         alpha = max(alpha, best_value)
     elapsed = time.perf_counter() - start
-    return SearchResult("alphabeta", best_move, best_value, s.nodes, elapsed,
-                        max_depth, s.cutoffs)
+    return SearchResult("alphabeta", best_move, best_value, counter["nodes"], elapsed,
+                        max_depth, counter["cutoffs"])
 
 
 ALGORITHMS = {

@@ -32,13 +32,13 @@ def label(s):
 
 
 def timed_search(algorithm, game, state, depth, repeats):
-    """Run a search `repeats` times (3, see config.TIMING_REPEATS); keep its
-    result and the median time (the middle of the 3 sorted times)."""
+    """Run a search `repeats` times; keep its result and the median time
+    (the middle one of the sorted times)."""
     fn = ALGORITHMS[algorithm]
     results = [fn(game, state, depth) for _ in range(repeats)]
     r = results[0]
     times = [x.time_s for x in results]
-    r.time_s = sorted(times)[1]
+    r.time_s = sorted(times)[len(times) // 2]
     return r
 
 
@@ -159,29 +159,51 @@ def run_depth_scaling(scaling, repeats):
 # Summary
 # --------------------------------------------------------------------------
 def build_summary(states, games):
-    per_algo = (states.groupby(["config", "algorithm"], sort=False)
-                .agg(states=("state_id", "count"), mean_nodes=("nodes", "mean"),
-                     total_nodes=("nodes", "sum"), mean_time_s=("time_s", "mean"),
-                     total_time_s=("time_s", "sum"))
-                .reset_index())
+    """One row per setting and algorithm, built from the two detailed tables."""
+    rows = []
+    configs = []                                  # settings, in the order they were run
+    for c in states["config"]:
+        if c not in configs:
+            configs.append(c)
 
-    wide = states.pivot_table(index=["config", "state_id"], columns="algorithm",
-                              values=["move", "value", "nodes"], aggfunc="first")
-    agree = pd.DataFrame({
-        "same_move_rate": (wide["move"]["minimax"] == wide["move"]["alphabeta"]),
-        "same_value_rate": (wide["value"]["minimax"] == wide["value"]["alphabeta"]),
-    }).groupby("config").mean().reset_index()
-    # % fewer positions searched = 1 - (Alpha-Beta average / Minimax average)
-    mean_nodes = per_algo.pivot(index="config", columns="algorithm", values="mean_nodes")
-    agree = agree.merge((100 * (1 - mean_nodes["alphabeta"] / mean_nodes["minimax"]))
-                        .rename("node_reduction_pct").reset_index(), on="config")
+    for c in configs:
+        st = states[states["config"] == c]
+        mm = st[st["algorithm"] == "minimax"]
+        ab = st[st["algorithm"] == "alphabeta"]
 
-    outcomes = (games.groupby(["config", "algorithm", "outcome"]).size()
-                .unstack(fill_value=0).reindex(columns=["win", "draw", "loss"], fill_value=0)
-                .add_prefix("vs_random_").reset_index())
+        # did both algorithms pick the same move / value on each position?
+        same_move = 0
+        same_value = 0
+        mm_moves, ab_moves = list(mm["move"]), list(ab["move"])
+        mm_values, ab_values = list(mm["value"]), list(ab["value"])
+        for i in range(len(mm_moves)):
+            if mm_moves[i] == ab_moves[i]:
+                same_move += 1
+            if mm_values[i] == ab_values[i]:
+                same_value += 1
+        n = len(mm_moves)
 
-    out = per_algo.merge(agree, on="config").merge(outcomes, on=["config", "algorithm"], how="left")
-    return out
+        # % fewer positions searched = 1 - (Alpha-Beta average / Minimax average)
+        reduction = 100 * (1 - ab["nodes"].mean() / mm["nodes"].mean())
+
+        for algo, part in (("minimax", mm), ("alphabeta", ab)):
+            g = games[(games["config"] == c) & (games["algorithm"] == algo)]
+            rows.append({
+                "config": c,
+                "algorithm": algo,
+                "states": len(part),
+                "mean_nodes": part["nodes"].mean(),
+                "total_nodes": part["nodes"].sum(),
+                "mean_time_s": part["time_s"].mean(),
+                "total_time_s": part["time_s"].sum(),
+                "same_move_rate": same_move / n,
+                "same_value_rate": same_value / n,
+                "node_reduction_pct": reduction,
+                "vs_random_win": (g["outcome"] == "win").sum(),
+                "vs_random_draw": (g["outcome"] == "draw").sum(),
+                "vs_random_loss": (g["outcome"] == "loss").sum(),
+            })
+    return pd.DataFrame(rows)
 
 
 def main():
