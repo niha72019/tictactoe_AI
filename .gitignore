@@ -1,0 +1,21 @@
+# Virtual environment
+.venv/
+
+# Python bytecode
+__pycache__/
+*.pyc
+
+# Test cache
+.pytest_cache/
+
+# Editor settings
+.vscode/
+
+# Secrets
+.env
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Note: results/ is intentionally NOT ignored (CSVs and charts are committed)
